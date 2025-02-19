@@ -1,3 +1,28 @@
+class CMamba(nn.Module):
+    def __init__(self):
+        super(CMamba, self).__init__()
+        self.conv = nn.Conv1d(136, 68, 1)
+        self.pool = nn.AdaptiveAvgPool1d(64)
+        self.conv2 = nn.Conv1d(64, 32, 1)
+        self.pool2 = nn.AdaptiveAvgPool1d(32)
+        self.mamba1 = Mamba(d_model=64, d_state=32, d_conv=3, expand=2)
+        self.mamba2 = Mamba(d_model=32, d_state=32, d_conv=3, expand=2)
+        self.ln = nn.Linear(32, 64)
+    def forward(self, x):
+        x = torch.permute(x, (0, 2, 1))
+        x = self.conv(x)
+        x = torch.permute(x, (0, 2, 1))
+        x = self.pool(x)
+        x1 = self.mamba1(x)
+        x2 = torch.permute(x, (0, 2, 1))
+        x2 = self.conv2(x2)
+        x2 = torch.permute(x2, (0, 2, 1))
+        x2 = self.pool2(x2)
+        x2 = self.mamba2(x2)
+        x2 = self.ln(x2)
+        x = x1 + x2
+        return x
+
 class AttentionFusion(nn.Module):
     def __init__(self, feature_dim):
         super(AttentionFusion, self).__init__()
@@ -13,7 +38,6 @@ class AttentionFusion(nn.Module):
         attention_weights = F.softmax(self.V(score), dim=1) 
         weighted_sum = torch.bmm(attention_weights.permute(0, 2, 1), feature_b)  
         return weighted_sum  
-        
 
 class Feature_Fusion_Pre(nn.Module):
     def __init__(self):
